@@ -1,0 +1,49 @@
+{
+  "nodes": [
+    { "id": 1 },
+    { "id": 2 },
+    { "id": 3 },
+    { "id": 4 },
+    { "id": 5 },
+    { "id": 6 }
+  ],
+  "topics": [
+    {
+      "id": 1,
+      "master": 1,
+      "partitions": [
+        { "node": 1, "synched": 1 },
+        { "node": 2, "synched": 1 },
+        { "node": 3, "synched": 0.3 },
+        { "node": 5, "synched": 1 }
+      ]
+    },
+    {
+      "id": 2,
+      "master": 5,
+      "partitions": [
+        { "node": 2, "synched": 0.8 },
+        { "node": 3, "synched": 1 },
+        { "node": 5, "synched": 1 },
+        { "node": 6, "synched": 0.5 }
+      ]
+    },
+    {
+      "id": 3,
+      "master": 4,
+      "partitions": [
+        { "node": 3, "synched": 1 },
+        { "node": 4, "synched": 1 }
+      ]
+    },
+    {
+      "id": 4,
+      "master": 6,
+      "partitions": [
+        { "node": 2, "synched": 1 },
+        { "node": 5, "synched": 1 },
+        { "node": 6, "synched": 1 }
+      ]
+    }
+  ]
+}
