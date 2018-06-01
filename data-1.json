@@ -1,0 +1,98 @@
+{
+  "brokers": [
+    {
+      "host": "0.0.0.0",
+      "port": "51015",
+      "partitions": [
+        {
+          "partitionId": 0,
+          "topicName": "default-topic",
+          "role": "LEADER"
+        },
+        {
+          "partitionId": 1,
+          "topicName": "my-topic",
+          "role": "LEADER"
+        },
+        {
+          "partitionId": 2,
+          "topicName": "my-topic",
+          "role": "FOLLOWER"
+        },
+        {
+          "partitionId": 3,
+          "topicName": "my-topic",
+          "role": "FOLLOWER"
+        }
+      ]
+    },
+    {
+      "host": "0.0.0.0",
+      "port": "41015",
+      "partitions": [
+        {
+          "partitionId": 0,
+          "topicName": "default-topic",
+          "role": "FOLLOWER"
+        },
+        {
+          "partitionId": 1,
+          "topicName": "my-topic",
+          "role": "FOLLOWER"
+        },
+        {
+          "partitionId": 2,
+          "topicName": "my-topic",
+          "role": "LEADER"
+        },
+        {
+          "partitionId": 3,
+          "topicName": "my-topic",
+          "role": "FOLLOWER"
+        }
+      ]
+    },
+    {
+      "host": "0.0.0.0",
+      "port": "31015",
+      "partitions": [
+        {
+          "partitionId": 0,
+          "topicName": "default-topic",
+          "role": "FOLLOWER"
+        },
+        {
+          "partitionId": 1,
+          "topicName": "my-topic",
+          "role": "FOLLOWER"
+        },
+        {
+          "partitionId": 2,
+          "topicName": "my-topic",
+          "role": "FOLLOWER"
+        },
+        {
+          "partitionId": 3,
+          "topicName": "my-topic",
+          "role": "LEADER"
+        }
+      ]
+    },
+    {
+      "host": "0.0.0.0",
+      "port": "11015",
+      "partitions": [
+        {
+          "partitionId": 0,
+          "topicName": "default-topic",
+          "role": "FOLLOWER"
+        },
+        {
+          "partitionId": 5,
+          "topicName": "other-topic",
+          "role": "LEADER"
+        }
+      ]
+    }
+  ]
+}

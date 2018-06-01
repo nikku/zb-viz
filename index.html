@@ -43,65 +43,96 @@
   <div id="chart"></div>
   <ul id="legend"></ul>
   <textarea></textarea>
+  <!--
   <script src="https://d3js.org/d3.v5.js"></script>
+  -->
+  <script src="./d3.v5.js"></script>
   <script>
 
+    async function fetchData() {
+
+      var idx = Math.floor(Math.random() * 6);
+
+      idx = 0;
+
+      console.log(`loading data-${ idx }.json`);
+
+      var {
+        brokers
+      } = await d3.json(`data-${idx}.json`);
+
+      var topicMap = {};
+      var partitionMap = {};
+
+      brokers.forEach(function(broker) {
+
+        // generate synthetic broker ID
+        broker.id = `${broker.host}:${broker.port}`;
+
+        broker.memberships = [];
+
+        // load partitions
+        broker.partitions.forEach(membership => {
+
+          var topic = topicMap[membership.topicName];
+
+          // create topic
+          if (!topic) {
+            topic = topicMap[membership.topicName] = {
+              id: membership.topicName,
+              partitions: []
+            };
+          }
+
+          var partition = partitionMap[membership.partitionId];
+
+          if (!partition) {
+            partition = partitionMap[membership.partitionId] = {
+              id: membership.partitionId,
+              members: []
+            };
+
+            // wire partition -> topic
+            partition.topic = topic;
+
+            // add partition
+            topic.partitions.push(
+              partition
+            );
+          }
+
+          var partitionMembership = {
+            broker,
+            partition,
+            role: membership.role
+          };
+
+          partition.members.push(partitionMembership);
+
+          broker.memberships.push(partitionMembership);
+        });
+
+      });
+
+      return {
+        brokers,
+        partitions: Object.values(partitionMap),
+        topics: Object.values(topicMap)
+      };
+    }
+
+
     const ACTIVE_CLS = 'active';
+
+    let brokers = [];
+    let partitions = [];
+    let topics = [];
 
     async function run() {
 
       var colors = d3.scaleOrdinal(d3.schemeCategory10);
 
-      // DATA
-      var data = await d3.json('data.json');
-
-      var nodes = data.brokers;
-
-      var partitions = [];
-
-      var nodeMap = new Map();
-
-      nodes.forEach(function(node) {
-        var nodeId = `${node.host}:${node.port}`;
-
-        nodeMap.set(nodeId, Object.assign(node, { id: nodeId }));
-      });
-
-      var topicIdx = 0;
-
-      var topics = nodes.reduce((topicsMap, node) => {
-
-        node.partitions.forEach(partition => {
-
-          // create topic
-          if (!topicsMap.has(partition.topicName)) {            
-            topicsMap.set(partition.topicName, {
-              color: colors(topicIdx),
-              id: partition.topicName,
-              partitions: []
-            });
-
-            topicIdx++;
-          }
-
-          // add partition
-          topicsMap.get(partition.topicName).partitions.push(partition);
-
-          // add topic
-          partition.topic = topicsMap.get(partition.topicName);
-
-          if (!partition.nodes) {
-            partition.nodes = [];
-          }
-
-          partition.nodes.push(node);
-        });
-
-        return topicsMap;
-
-      }, new Map()).values();
-
-      topics = Array.from(topics);
+      var visibleGroups = [];
 
       // LAYOUT
       var width = 600;
@@ -126,13 +157,20 @@
         .outerRadius(15)
         .innerRadius(0);
 
+      function groupColor(group) {
+        return group.color || '#ccc';
+      }
+
+      function membershipColor(membership) {
+        return colors(membership.partition.id) || '#ccc';
+      }
 
       // UPDATE VISUALS
       function tick() {
 
         var hull =
           hullGroup.selectAll('.hull')
-            .data(partitions);
+            .data(visibleGroups);
 
         var hullEnter =
           hull.enter()
@@ -149,9 +187,10 @@
           .style('stroke', groupFill)
           .attr('d', groupPath);
 
+
         var node =
           nodeGroup.selectAll('.node')
-            .data(nodes);
+            .data(brokers);
 
         var nodeEnter =
           node.enter()
@@ -164,19 +203,15 @@
 
         var arc = circle
           .selectAll('.arc')
-          .data(function(node) {
-            return pie(node.partitions);
+          .data(function(broker) {
+            return pie(broker.memberships);
           })
           .enter()
             .append("path")
               .attr("class", "arc")
               .attr("d", arcPath)
               .style('fill', function(d) {
-                var partition = d.data;
-
-                var color = partition.topic.color;
-
-                return color;
+                return membershipColor(d.data);
               });
 
         nodeEnter.append('text')
@@ -193,20 +228,23 @@
         node.exit().remove();
 
 
-        d3.select("#legend")
-            .selectAll('.topic')
-              .data(topics)
-              .enter()
-                .append('li')
-                  .attr('data-topic-id', t => t.id)
-                  .on('click', clickTopic)
-                  .style('color', function(d) {
-                    return d.color;
-                  })
-                  .classed('topic', true)
-                  .text(function(t) {
-                    return `topic ${t.id}`;
-                  });
+        var legend = d3.select("#legend")
+          .selectAll('.topic')
+            .data(topics);
+
+        legend.enter()
+          .append('li')
+            .attr('data-topic-id', t => t.id)
+            .on('click', clickTopic)
+            .style('color', function(d) {
+              return d.color;
+            })
+            .classed('topic', true)
+            .text(function(t) {
+              return `topic ${t.id}`;
+            });
+
+        legend.exit().remove();
       }
 
       function showPartitions(topics) {
@@ -216,7 +254,7 @@
         var linkMap = new Map();
 
         topics.forEach((topic) => {
-          var l = topicLinks(topic);
+          var l = getTopicLinks(topic);
 
           linkMap.set(topic, l);
 
@@ -227,7 +265,7 @@
 
         linkForce.links(links);
 
-        partitions = [ ...linkMap ].map(([ topic, links ]) => {
+        visibleGroups = [ ...linkMap ].map(([ topic, links ]) => {
           var nodeSet = new Set();
 
           links.forEach(function(l) {
@@ -242,24 +280,37 @@
         });
       }
 
-      function topicLinks(topic) {
+      function getPartitionLinks(partition) {
 
-        var {
-          master,
-          partitions
-        } = topic;
+        var members = partition.members;
 
-        return partitions.map(partition => {
+        var leadership = (
+          members.find(m => m.role === 'LEADER') ||
+          members[0]
+        );
 
-          if (partition.node === master) {
+        return members.map(membership => {
+
+          if (membership === leadership) {
             return;
           }
 
           return {
-            source: master,
-            target: partition.node
+            source: leadership.broker,
+            target: membership.broker
           };
         }).filter(n => n);
+      }
+
+      function getTopicLinks(topic) {
+
+        var {
+          partitions
+        } = topic;
+
+        var partitionLinks = partitions.map(getPartitionLinks);
+
+        return [].concat(...partitionLinks);
       }
 
       function nodeHull({ nodes, topic }) {
@@ -285,15 +336,16 @@
       }
 
       function groupFill(group) {
-        var { topic } = group;
-        return topic && topic.color || '#ccc';
+        return groupColor(group);
       }
 
       function groupPath(group) {
 
-        var { nodes } = group;
+        var {
+          nodes
+        } = group;
 
-        var points = nodes.reduce((points, n) => {
+        var points = nodes.reduce((points, point) => {
 
           const pad = 30;
           const parts = 9;
@@ -302,8 +354,8 @@
             var alpha = (2 * Math.PI * j / parts);
 
             points.push([
-              n.x + pad * Math.sin(alpha),
-              n.y + pad * Math.cos(alpha)
+              point.x + pad * Math.sin(alpha),
+              point.y + pad * Math.cos(alpha)
             ]);
           }
 
@@ -321,7 +373,7 @@
           .strength(.7);
 
       var simulation =
-        d3.forceSimulation(nodes)
+        d3.forceSimulation()
           .force('center', d3.forceCenter(
             width / 2,
             height / 2
@@ -368,6 +420,22 @@
         // showPartitions(selectedTopics);
       }
 
+      function reload() {
+
+        fetchData().then(function(data) {
+
+          brokers = data.brokers;
+          partitions = data.partitions;
+          topics = data.topics;
+
+          // TODO refresh links
+          // REFRESH visual groups
+          simulation.nodes(brokers);
+        });
+
+      }
+
+      reload();
     }
 
     run().catch(console.error);

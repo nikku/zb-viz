@@ -1,0 +1,74 @@
+{
+  "brokers": [
+    {
+      "host": "0.0.0.0",
+      "port": "51015",
+      "partitions": [
+        {
+          "partitionId": 0,
+          "topicName": "default-topic",
+          "role": "LEADER"
+        }
+      ]
+    },
+    {
+      "host": "0.0.0.0",
+      "port": "41015",
+      "partitions": [
+        {
+          "partitionId": 0,
+          "topicName": "default-topic",
+          "role": "FOLLOWER"
+        }
+      ]
+    },
+    {
+      "host": "0.0.0.0",
+      "port": "31015",
+      "partitions": [
+        {
+          "partitionId": 0,
+          "topicName": "default-topic",
+          "role": "FOLLOWER"
+        }
+      ]
+    },
+    {
+      "host": "0.0.0.0",
+      "port": "21015",
+      "partitions": [
+        {
+          "partitionId": 0,
+          "topicName": "default-topic",
+          "role": "FOLLOWER"
+        },
+        {
+          "partitionId": 4,
+          "topicName": "other-topic",
+          "role": "LEADER"
+        },
+        {
+          "partitionId": 5,
+          "topicName": "other-topic",
+          "role": "LEADER"
+        }
+      ]
+    },
+    {
+      "host": "0.0.0.0",
+      "port": "11015",
+      "partitions": [
+        {
+          "partitionId": 0,
+          "topicName": "default-topic",
+          "role": "FOLLOWER"
+        },
+        {
+          "partitionId": 5,
+          "topicName": "other-topic",
+          "role": "FOLLOWER"
+        }
+      ]
+    }
+  ]
+}
