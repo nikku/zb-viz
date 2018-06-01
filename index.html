@@ -226,18 +226,25 @@
           .append('g')
             .attr('class', 'circle');
 
-        var arc = circle
+        var arc = node.select('.circle')
           .selectAll('.arc')
-          .data(function(broker) {
-            return pie(broker.memberships);
-          })
+          .data(
+            broker => pie(broker.memberships),
+            p => p.index
+          );
+
+        var arcEnter = arc
           .enter()
             .append("path")
-              .attr("class", "arc")
-              .attr("d", arcPath)
-              .style('fill', function(d) {
-                return membershipColor(d.data);
-              });
+              .attr("class", "arc");
+
+        arc.merge(arcEnter)
+          .attr("d", arcPath)
+          .style('fill', function(d) {
+            return membershipColor(d.data);
+          });
+
+        arc.exit().remove();
 
         nodeEnter.append('text')
           .attr('dx', 20)
@@ -504,15 +511,9 @@
 
       var simulation =
         d3.forceSimulation()
-          .force('center', d3.forceCenter(
-            width / 2,
-            height / 2
-          ))
-          .force('body',
-            d3.forceManyBody()
-              .distanceMax(120)
-              .strength(-50)
-          )
+          .force('x', d3.forceX(width / 2).strength(0.005))
+          .force('y', d3.forceY(height / 2).strength(0.005))
+          .force('body', d3.forceManyBody())
           .force('collide', d3.forceCollide(30))
           .force('link', linkForce)
           .on('tick', tick);
@@ -554,16 +555,34 @@
 
         fetchData(dataFile).then(function(data) {
 
-          brokers = data.brokers;
+          const newBrokers = data.brokers;
+
+          newBrokers.forEach((broker) => {
+
+            var existingBroker = brokers.find(b => broker.id === b.id);
+
+            if (existingBroker) {
+              broker.x = existingBroker.x;
+              broker.y = existingBroker.y;
+              broker.vx = existingBroker.vx;
+              broker.vy = existingBroker.vy;
+            } else {
+              broker.x = width / 2;
+              broker.y = height / 2;
+            }
+          });
+
+          brokers = newBrokers;
           partitions = data.partitions;
           topics = data.topics;
+
+          linkForce.links([]);
 
           // TODO refresh links
           // REFRESH visual groups
           simulation
             .nodes(brokers)
-            .alpha(1)
-            .alphaTarget(0)
+            .alpha(0.3)
             .restart();
         });
 
