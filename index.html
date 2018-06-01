@@ -49,26 +49,34 @@
   </style>
 </head>
 <body>
+  <div id="header">
+    <button id="poll-button">start polling</button>
+    <hr />
+  </div>
   <div id="chart"></div>
   <ul id="legend"></ul>
-  <textarea></textarea>
+
+  <table id="table"></table>
+
   <!--
   <script src="https://d3js.org/d3.v5.js"></script>
   -->
   <script src="./d3.v5.js"></script>
   <script>
 
-    async function fetchData() {
+    async function fetchData(dataFile) {
 
-      var idx = Math.floor(Math.random() * 6);
+      if (!dataFile) {
+        let idx = Math.floor(Math.random() * 6);
 
-      // idx = 0;
+        dataFile = `data-${ idx }`;
+      }
 
-      console.log(`loading data-${ idx }.json`);
+      console.log(`loading ${dataFile}.json`);
 
       var {
         brokers
-      } = await d3.json(`data-${idx}.json`);
+      } = await d3.json(`${dataFile}.json`);
 
       var topicMap = {};
       var partitionMap = {};
@@ -175,19 +183,19 @@
       }
 
       // TABLE
-      var table = d3
-          .select('body')
-          .append('table'),
-        thead = table.append('thead');
+      var table = d3.select('#table');
+
+      var thead = table.append('thead');
 
       thead.append('tr');
+
 
       // UPDATE VISUALS
       function tick() {
 
         var hull =
           hullGroup.selectAll('.hull')
-            .data(visibleGroups);
+            .data(visibleGroups, g => g.topic.id);
 
         var hullEnter =
           hull.enter()
@@ -207,7 +215,7 @@
 
         var node =
           nodeGroup.selectAll('.node')
-            .data(brokers);
+            .data(brokers, b => b.id);
 
         var nodeEnter =
           node.enter()
@@ -247,7 +255,7 @@
 
         var legend = d3.select("#legend")
           .selectAll('.topic')
-            .data(topics);
+            .data(topics, t => t.id);
 
         legend.enter()
           .append('li')
@@ -265,71 +273,109 @@
 
 
         // TABLE
-        var headerCells = thead
-          .selectAll('th')
-          .data(["Topic", "Partition"].concat(brokers.map(b => b.id)));
+        var headerCells =
+          thead.selectAll('th')
+            .data(
+              [ 'Topic', 'Partition' ].concat(brokers.map(b => b.id)),
+              d => d
+            );
 
         headerCells
           .enter()
-          .append('th')
-          .text(d => d);
+            .append('th')
+            .text(d => d);
 
         headerCells
           .exit()
-          .remove();
-
-        var nestedData = d3
-          .nest()
-          .key(t => t.id)
-          .entries(topics);
+            .remove();
 
         var rowGroups = table
           .selectAll('tbody')
-          .data(nestedData);
+          .data(topics, t => t.id);
 
         rowGroups
+          .exit()
+            .remove();
+
+        var rowGroupEnter = rowGroups
           .enter()
-          .append('tbody')
-          .each(function(rowgroup) {
-            var topic = rowgroup.values[0];
+          .append('tbody');
 
-            var rowspan = topic.partitions.length;
+        var partitionRows = rowGroups.merge(rowGroupEnter)
+          .selectAll('tr')
+            .data(topic => topic.partitions, p => p.id);
 
-            d3.select(this)
-              .selectAll('tr')
-              .data(d => d.values[0].partitions)
-              .enter()
-              .append('tr')
-              .each(function (partition, index) {
-                var row = d3.select(this);
+        var partitionRowsEnter = partitionRows
+          .enter()
+            .append('tr');
 
-                if (index == 0) {
-                  row.append('td').attr('rowspan', rowspan).text(topic.id);
-                }
+        var rows = rowGroups
+          .merge(rowGroupEnter)
+            .selectAll('tr');
 
-                row.append('td').text(partition.id);
+        rows.selectAll('.label').remove();
 
-                brokers.forEach(broker => {
-                  var membership = broker.memberships.find(membership => {
-                    return membership.partition === partition;
-                  });
+        rows.each(function(partition, i) {
 
-                  if (membership) {
-                    row.append('td').text(' ').style('background', membershipColor(membership));
-                  } else {
-                    row.append('td').text(' ');
-                  }
+          var self = d3.select(this);
+
+          self.insert('td', ':first-child')
+              .classed('label', true)
+              .text(partition.id);
+
+          if (i === 0) {
+            self.insert('td', ':first-child')
+                .classed('label', true)
+                .text(partition.topic.id)
+                .attr('rowspan', function(d) {
+                  return d.topic.partitions.length;
                 });
+          }
 
-                // row.on('click', function(rowdata) {
-                //   console.log('Row Clicked');
-                //   console.log(rowdata);
-                // });
+          // console.log(self, arguments)
+        });
+
+        partitionRows
+          .exit()
+            .remove();
+
+        var partitionCells = partitionRows.merge(partitionRowsEnter)
+          .selectAll('td.membership')
+          .data(
+            (partition) => {
+              return brokers.map((broker) => {
+                return {
+                  broker,
+                  partition,
+                  membership: broker.memberships.find(membership => {
+                    return membership.partition === partition;
+                  })
+                };
               });
-          });
+            },
+            d => `${d.broker.id}__${d.partition.id}`
+          );
 
-          rowGroups.exit().remove();
+        var partitionCellsEnter =
+          partitionCells.enter()
+            .append('td')
+              .classed('membership', true);
+
+        partitionCells.style('background', (data) => {
+
+          var {
+            broker,
+            membership
+          } = data;
+
+          return membership ? membershipColor(membership) : 'none';
+        });
+
+        partitionCells
+          .exit()
+            .remove();
       }
+
 
       function showPartitions(topics) {
 
@@ -504,9 +550,9 @@
         // showPartitions(selectedTopics);
       }
 
-      function reload() {
+      function load(dataFile) {
 
-        fetchData().then(function(data) {
+        fetchData(dataFile).then(function(data) {
 
           brokers = data.brokers;
           partitions = data.partitions;
@@ -514,14 +560,35 @@
 
           // TODO refresh links
           // REFRESH visual groups
-          simulation.nodes(brokers).restart();
+          simulation
+            .nodes(brokers)
+            .alpha(1)
+            .alphaTarget(0)
+            .restart();
         });
 
       }
 
-      setInterval(reload, 3000);
-      
-      reload();
+      window.load = load;
+
+      var pollButton = document.querySelector('#poll-button');
+
+      var timer;
+
+      pollButton.addEventListener('click', function() {
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+          pollButton.textContent = 'start polling';
+        } else {
+          timer = setInterval(load, 3000);
+          pollButton.textContent = 'stop polling';
+
+          load();
+        }
+      });
+
+      load('data-0');
     }
 
     run().catch(console.error);
