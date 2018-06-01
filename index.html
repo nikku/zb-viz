@@ -53,39 +53,55 @@
       var colors = d3.scaleOrdinal(d3.schemeCategory10);
 
       // DATA
-      var {
-        nodes,
-        topics
-      } = await d3.json('data.json');
+      var data = await d3.json('data.json');
+
+      var nodes = data.brokers;
 
       var partitions = [];
 
       var nodeMap = new Map();
 
-      nodes.forEach(function(n) {
-        nodeMap.set(n.id, n);
+      nodes.forEach(function(node) {
+        var nodeId = `${node.host}:${node.port}`;
+
+        nodeMap.set(nodeId, Object.assign(node, { id: nodeId }));
       });
 
-      topics.forEach(function(topic, idx) {
-        topic.color = colors(idx);
+      var topicIdx = 0;
 
-        topic.partitions.forEach(function(p) {
-          var node = nodeMap.get(p.node);
+      var topics = nodes.reduce((topicsMap, node) => {
 
-          if (!node) {
-            throw new Error(`node <${p.node}> unknown`);
+        node.partitions.forEach(partition => {
+
+          // create topic
+          if (!topicsMap.has(partition.topicName)) {            
+            topicsMap.set(partition.topicName, {
+              color: colors(topicIdx),
+              id: partition.topicName,
+              partitions: []
+            });
+
+            topicIdx++;
           }
 
-          node.partitions = node.partitions || [];
+          // add partition
+          topicsMap.get(partition.topicName).partitions.push(partition);
 
-          node.partitions.push({
-            topic,
-            get isMaster() {
-              return topic.master === node.id;
-            }
-          });
-        })
-      });
+          // add topic
+          partition.topic = topicsMap.get(partition.topicName);
+
+          if (!partition.nodes) {
+            partition.nodes = [];
+          }
+
+          partition.nodes.push(node);
+        });
+
+        return topicsMap;
+
+      }, new Map()).values();
+
+      topics = Array.from(topics);
 
       // LAYOUT
       var width = 600;
